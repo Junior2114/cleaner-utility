@@ -1,0 +1,10 @@
+#pragma once
+
+// Файл сгенерирован CMake из Version.h.in.
+// Не редактируй вручную — меняй project(... VERSION x.y.z) в CMakeLists.txt.
+
+#define MYCLEANER_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define MYCLEANER_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define MYCLEANER_VERSION_PATCH @PROJECT_VERSION_PATCH@
+
+#define MYCLEANER_VERSION_STRING "@PROJECT_VERSION@"

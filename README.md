@@ -90,7 +90,7 @@
 Подходит, если хочешь собрать сам или внести изменения.
 
 ```powershell
-git clone https://github.com/<your-name>/my-cleaner
+git clone https://github.com/<Junior2114>/my-cleaner
 cd my-cleaner
 .\scripts\install.cmd
 ```
@@ -113,7 +113,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
    между маркерами:
    ```
    # >>> my-cleaner >>>
-   . "C:\Users\<Имя>\AppData\Local\Programs\my-cleaner\bin\cleaner.ps1"
+   . "C:\Users\<ТвоеИмя>\AppData\Local\Programs\my-cleaner\bin\cleaner.ps1"
    # <<< my-cleaner <<<
    ```
 

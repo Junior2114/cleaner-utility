@@ -1,7 +1,7 @@
 #pragma once
-#include <string>
 #include <fstream>
 #include <mutex>
+#include <string>
 
 enum class LogLevel { Info, Warning, Error };
 

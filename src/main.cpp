@@ -1,11 +1,16 @@
 #include "cleaner/Cleaner.h"
 #include "cleaner/Logger.h"
+#include "cleaner/Version.h"     // ← добавили
 
 #include <windows.h>
 
 #include <iostream>
 #include <string>
 #include <vector>
+
+static void printVersion() {
+    std::cout << "my-cleaner " << MYCLEANER_VERSION_STRING << "\n";
+}
 
 static void printHelp() {
     std::cout <<
@@ -19,6 +24,7 @@ static void printHelp() {
         "  --only-temp       Alias for --no-caches\n"
         "  --min-age N       Skip files newer than N minutes (default 10)\n"
         "  --path DIR        Add custom directory (can repeat; replaces defaults)\n"
+        "  --version, -v     Show version and exit\n"
         "  --help, -h        Show this help\n";
 }
 
@@ -39,6 +45,9 @@ int wmain(int argc, wchar_t** argv) {
             verbose = true;
         } else if (a == L"--no-caches" || a == L"--only-temp") {
             cleanCaches = false;
+        } else if (a == L"--version" || a == L"-v") {
+            printVersion();
+            return 0;
         } else if (a == L"--help" || a == L"-h") {
             printHelp();
             return 0;

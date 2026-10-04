@@ -1,0 +1,201 @@
+# ============================================================
+#  my-cleaner — PowerShell-модуль
+#  Автоматически сгенерировано из cleaner.ps1.in
+#  Версия: @PROJECT_VERSION@
+#
+#  НЕ РЕДАКТИРУЙ ВРУЧНУЮ. Переустанови утилиту:
+#     cmake --install build --config Release --prefix $env:LOCALAPPDATA\Programs\my-cleaner
+# ============================================================
+
+$script:CleanerVersion = '@PROJECT_VERSION@'
+$script:CleanerExe     = Join-Path $PSScriptRoot 'TempCleaner.exe'
+$script:CleanerRoot    = $PSScriptRoot
+
+# ------------------------------------------------------------
+#  Внутренние помощники
+# ------------------------------------------------------------
+
+function _cleaner_is_admin {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function _cleaner_assert_exe {
+    if (-not (Test-Path $script:CleanerExe)) {
+        throw "Не найден $script:CleanerExe. Переустанови my-cleaner."
+    }
+}
+
+# Готовит строку аргументов для передачи в elevated-процесс.
+function _cleaner_quote_args {
+    param([string[]]$Args)
+    $q = @()
+    if ($Args) {
+        foreach ($a in $Args) {
+            if ($a -match '\s' -or $a -match "['\`"]") {
+                $q += "'" + ($a -replace "'", "''") + "'"
+            } else {
+                $q += $a
+            }
+        }
+    }
+    return ($q -join ' ')
+}
+
+# Запуск exe с UAC, вывод в отдельном окне.
+function _cleaner_run_elevated {
+    param([string[]]$RunArgs)
+
+    $argStr = _cleaner_quote_args $RunArgs
+
+    # Рабочая папка — %TEMP% пользователя, чтобы cleaner.log писался
+    # туда, где у пользователя всегда есть права на запись.
+    $workDir = $env:TEMP
+
+    $cmd = "Set-Location -LiteralPath '$workDir'; " +
+           "& '$script:CleanerExe' $argStr; " +
+           "Write-Host ''; " +
+           "Write-Host 'Нажми Enter для выхода...' -ForegroundColor DarkGray; " +
+           "Read-Host | Out-Null"
+
+    Start-Process -FilePath 'powershell' -Verb RunAs -ArgumentList @(
+        '-NoExit', '-Command', $cmd
+    )
+}
+
+# Запуск exe без UAC.
+function _cleaner_run_normal {
+    param([string[]]$RunArgs)
+    Push-Location $env:TEMP
+    try {
+        if ($RunArgs) { & $script:CleanerExe @RunArgs }
+        else          { & $script:CleanerExe }
+    } finally { Pop-Location }
+}
+
+# ------------------------------------------------------------
+#  Публичная команда cleaner
+# ------------------------------------------------------------
+
+function cleaner {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0)]
+        [ValidateSet('run','dry','force','log','version','help','')]
+        [string]$Action = 'help',
+
+        [Parameter(ValueFromRemainingArguments)]
+        [string[]]$Args
+    )
+
+    try {
+        switch ($Action) {
+            'run' {
+                _cleaner_assert_exe
+                if (_cleaner_is_admin) {
+                    _cleaner_run_normal $Args
+                } else {
+                    Write-Host "[*] Поднимаю UAC..." -ForegroundColor Yellow
+                    _cleaner_run_elevated $Args
+                }
+            }
+
+            'dry' {
+                _cleaner_assert_exe
+                $allArgs = @('--dry') + $Args
+                if (_cleaner_is_admin) {
+                    _cleaner_run_normal $allArgs
+                } else {
+                    Write-Host "[*] Поднимаю UAC (dry-режим)..." -ForegroundColor Yellow
+                    _cleaner_run_elevated $allArgs
+                }
+            }
+
+            'force' {
+                _cleaner_assert_exe
+                $allArgs = @('--force') + $Args
+                Write-Host "[!] FORCE-режим: игнорируем возраст файлов и атрибуты." -ForegroundColor Yellow
+                if (_cleaner_is_admin) {
+                    _cleaner_run_normal $allArgs
+                } else {
+                    Write-Host "[*] Поднимаю UAC (force-режим)..." -ForegroundColor Yellow
+                    _cleaner_run_elevated $allArgs
+                }
+            }
+
+            'log' {
+                # Ищем cleaner.log в порядке приоритета:
+                #   1) рядом с exe
+                #   2) в %TEMP%
+                #   3) в текущей папке
+                $candidates = @(
+                    (Join-Path $script:CleanerRoot 'cleaner.log'),
+                    (Join-Path $env:TEMP           'cleaner.log'),
+                    (Join-Path (Get-Location)      'cleaner.log')
+                )
+                $log = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+                if (-not $log) {
+                    Write-Host "[!] Лог cleaner.log не найден." -ForegroundColor Yellow
+                    return
+                }
+                Write-Host "[*] $log (последние 60 строк)" -ForegroundColor Cyan
+                Write-Host ("-" * 60) -ForegroundColor DarkGray
+                Get-Content $log -Tail 60
+                Write-Host ("-" * 60) -ForegroundColor DarkGray
+            }
+
+            'version' {
+                Write-Host "my-cleaner v$script:CleanerVersion" -ForegroundColor Cyan
+                Write-Host "  exe : $script:CleanerExe"          -ForegroundColor DarkGray
+                Write-Host "  root: $script:CleanerRoot"         -ForegroundColor DarkGray
+            }
+
+            default {
+                Write-Host ""
+                Write-Host "  my-cleaner v$script:CleanerVersion — очистка temp-файлов" -ForegroundColor Cyan
+                Write-Host ""
+                Write-Host "  cleaner run [опции]     запустить очистку (UAC)" -ForegroundColor White
+                Write-Host "  cleaner dry [опции]     dry-run, ничего не удаляет" -ForegroundColor White
+                Write-Host "  cleaner force [опции]   force-режим" -ForegroundColor White
+                Write-Host "  cleaner log             последние 60 строк лога" -ForegroundColor White
+                Write-Host "  cleaner version         версия и пути" -ForegroundColor White
+                Write-Host "  cleaner help            эта справка" -ForegroundColor White
+                Write-Host ""
+                Write-Host "  Опции exe (передаются после действия):" -ForegroundColor White
+                Write-Host "    --dry                   только показать" -ForegroundColor DarkGray
+                Write-Host "    --min-age N             пропускать файлы свежее N минут" -ForegroundColor DarkGray
+                Write-Host "    --path DIR              своя директория (можно повторять)" -ForegroundColor DarkGray
+                Write-Host ""
+                Write-Host "  Примеры:" -ForegroundColor White
+                Write-Host "    cleaner dry" -ForegroundColor DarkGray
+                Write-Host "    cleaner run --min-age 60" -ForegroundColor DarkGray
+                Write-Host "    cleaner run --path `"D:\Cache`"" -ForegroundColor DarkGray
+                Write-Host ""
+            }
+        }
+    }
+    catch {
+        Write-Host ""
+        Write-Host "[x] Ошибка: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "    Строка: $($_.InvocationInfo.ScriptLineNumber)" -ForegroundColor DarkGray
+        Write-Host ""
+    }
+}
+
+# Автодополнение (простое — по действиям и опциям)
+Register-ArgumentCompleter -Native -CommandName cleaner -ScriptBlock {
+    param($wordToComplete, $commandAst, $cursorPosition)
+    $actions = @('run','dry','force','log','version','help')
+    $opts    = @('--dry','--force','--min-age','--path','--help')
+    $tokens  = $commandAst.CommandElements | ForEach-Object { $_.ToString() }
+
+    # Первое слово после cleaner — действие
+    if ($tokens.Count -le 2 -and -not $wordToComplete.StartsWith('-')) {
+        $actions | Where-Object { $_ -like "$wordToComplete*" } |
+            ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
+    } else {
+        $opts | Where-Object { $_ -like "$wordToComplete*" } |
+            ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
+    }
+}

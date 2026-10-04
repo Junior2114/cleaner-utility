@@ -1,0 +1,23 @@
+# CMake
+/build/
+/out/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.cmake.user
+
+# MSVC
+*.user
+*.suo
+*.sln
+*.vcxproj
+*.vcxproj.*
+.vs/
+
+# Артефакты утилиты
+cleaner.log
+*.log
+
+# Прочее
+Thumbs.db
+.DS_Store

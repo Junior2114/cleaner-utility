@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build Windows release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build
+
+      - name: Build Release
+        run: cmake --build build --config Release
+
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Smoke test --version
+        run: .\build\bin\Release\TempCleaner.exe --version
+
+      - name: Prepare package
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $stage   = "package"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          Copy-Item "build\bin\Release\TempCleaner.exe" "$stage\TempCleaner.exe"
+          Copy-Item "build\cleaner.ps1"                 "$stage\cleaner.ps1"
+          Copy-Item "scripts\install.ps1"               "$stage\install.ps1"
+          Copy-Item "scripts\install.cmd"               "$stage\install.cmd"
+          Copy-Item "scripts\uninstall.ps1"             "$stage\uninstall.ps1"
+          Copy-Item "README.md"                         "$stage\README.md"
+          Copy-Item "LICENSE"                           "$stage\LICENSE"
+
+          Copy-Item "CMakeLists.txt"                    "$stage\CMakeLists.txt"
+          Copy-Item "include\cleaner\Version.h.in"      "$stage\Version.h.in"
+          Copy-Item "scripts\cleaner.ps1.in"            "$stage\cleaner.ps1.in"
+
+          Write-Host "Contents of package:"
+          Get-ChildItem $stage -Recurse | Select-Object FullName
+
+          $zipName = "my-cleaner-$version-win64.zip"
+          Compress-Archive -Path "$stage\*" -DestinationPath $zipName
+
+          $tarName = "my-cleaner-$version-win64.tar.gz"
+          tar -czf $tarName -C $stage .
+
+          $hash = (Get-FileHash $zipName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zipName" | Set-Content "$zipName.sha256" -Encoding ASCII
+
+          $hash2 = (Get-FileHash $tarName -Algorithm SHA256).Hash.ToLower()
+          "$hash2  $tarName" | Set-Content "$tarName.sha256" -Encoding ASCII
+
+          Write-Host ""
+          Write-Host "Created:"
+          Get-ChildItem -Filter "my-cleaner-*" | Select-Object Name, Length
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            my-cleaner-${{ github.ref_name }}-win64.zip
+            my-cleaner-${{ github.ref_name }}-win64.zip.sha256
+            my-cleaner-${{ github.ref_name }}-win64.tar.gz
+            my-cleaner-${{ github.ref_name }}-win64.tar.gz.sha256
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -1,4 +1,6 @@
-# my-cleaner
+# Cleaner_utility
+
+![CI](https://github.com/Junior2114/cleaner-utility/actions/workflows/ci.yml/badge.svg)
 
 Лёгкий чистильщик временных файлов Windows. Очищает `%TEMP%` и
 `C:\Windows\Temp`, умеет работать в режиме предпросмотра и с

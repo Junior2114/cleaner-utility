@@ -31,8 +31,6 @@ add_library(mycleaner_core STATIC
     src/Logger.cpp
 )
 
-# Заголовки ищем в include/ (там лежит cleaner/Cleaner.h)
-# и в generated/ (там генерируется cleaner/Version.h).
 target_include_directories(mycleaner_core
     PUBLIC
         "${CMAKE_SOURCE_DIR}/include"
@@ -69,3 +67,11 @@ install(FILES
         "${CMAKE_BINARY_DIR}/cleaner.ps1"
         "${CMAKE_SOURCE_DIR}/scripts/uninstall.ps1"
         DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# --- Тесты ---
+option(ENABLE_TESTS "Build unit tests" ON)
+
+if (ENABLE_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
